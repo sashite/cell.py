@@ -235,9 +235,7 @@ class TestFromIndices:
             ((0, 0, 0, 0, 0), "a1Aa1"),
         ],
     )
-    def test_from_indices_valid(
-        self, indices: tuple[int, ...], expected: str
-    ) -> None:
+    def test_from_indices_valid(self, indices: tuple[int, ...], expected: str) -> None:
         """Test conversion of valid indices to coordinates."""
         assert cell.from_indices(indices) == expected
 
@@ -417,9 +415,7 @@ class TestTicTacToe3D:
             for rank in range(1, 4):
                 for level in "ABC":
                     coord = f"{file}{rank}{level}"
-                    assert cell.is_valid(
-                        coord
-                    ), f"3D position {coord} should be valid"
+                    assert cell.is_valid(coord), f"3D position {coord} should be valid"
 
     def test_winning_diagonal(self) -> None:
         """Test the main 3D diagonal."""
