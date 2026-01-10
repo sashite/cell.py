@@ -9,9 +9,9 @@ CELL uses a cyclical three-character-set system:
 
 | Dimension       | Condition | Character Set             |
 |-----------------|-----------|---------------------------|
-| 1st, 4th, 7th…  | n % 3 = 1 | Latin lowercase (`a`–`z`) |
+| 1st, 4th, 7th…  | n % 3 = 1 | Latin lowercase (`a`-`z`) |
 | 2nd, 5th, 8th…  | n % 3 = 2 | Positive integers         |
-| 3rd, 6th, 9th…  | n % 3 = 0 | Latin uppercase (`A`–`Z`) |
+| 3rd, 6th, 9th…  | n % 3 = 0 | Latin uppercase (`A`-`Z`) |
 
 Examples
 --------
@@ -39,12 +39,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 __all__ = [
-    "is_valid",
-    "regex",
-    "parse",
     "dimensions",
-    "to_indices",
     "from_indices",
+    "is_valid",
+    "parse",
+    "regex",
+    "to_indices",
 ]
 
 # Regular expression from CELL Specification v1.0.0
@@ -324,7 +324,7 @@ def _parse_recursive(s: str, dimension: int) -> list[str]:
     if not component:
         return []
 
-    return [component] + _parse_recursive(remaining, dimension + 1)
+    return [component, *_parse_recursive(remaining, dimension + 1)]
 
 
 def _get_dimension_type(dimension: int) -> _DimensionType:
@@ -386,7 +386,7 @@ def _letters_to_index(letters: str) -> int:
     length = len(letters)
 
     # Add positions from shorter sequences
-    base_offset: int = sum((26**l for l in range(1, length)), start=0)
+    base_offset: int = sum((26**exp for exp in range(1, length)), start=0)
 
     # Add position within current length
     position_in_length = 0
