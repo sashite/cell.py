@@ -1,7 +1,6 @@
 # cell.py
 
 [![PyPI](https://img.shields.io/pypi/v/sashite-cell.svg)](https://pypi.org/project/sashite-cell/)
-[![Python](https://img.shields.io/pypi/pyversions/sashite-cell.svg)](https://pypi.org/project/sashite-cell/)
 [![License](https://img.shields.io/pypi/l/sashite-cell.svg)](https://github.com/sashite/cell.py/blob/main/LICENSE)
 
 > **CELL** (Coordinate Encoding for Layered Locations) implementation for Python.
