@@ -223,11 +223,8 @@ Cell.from_indices((702, 0))  # "aaa1"
 
 - [Game Protocol](https://sashite.dev/game-protocol/) — Conceptual foundation
 - [CELL Specification](https://sashite.dev/specs/cell/1.0.0/) — Official specification
+- [CELL Examples](https://sashite.dev/specs/cell/1.0.0/examples/) — Usage examples
 
 ## License
 
 Available as open source under the [Apache License 2.0](https://opensource.org/licenses/Apache-2.0).
-
-## About
-
-Maintained by [Sashité](https://sashite.com/) — promoting chess variants and sharing the beauty of board game cultures.
