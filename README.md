@@ -1,15 +1,24 @@
 # cell.py
 
 [![PyPI](https://img.shields.io/pypi/v/sashite-cell.svg)](https://pypi.org/project/sashite-cell/)
+[![Python](https://img.shields.io/pypi/pyversions/sashite-cell.svg)](https://pypi.org/project/sashite-cell/)
 [![License](https://img.shields.io/pypi/l/sashite-cell.svg)](https://github.com/sashite/cell.py/blob/main/LICENSE)
 
 > **CELL** (Coordinate Encoding for Layered Locations) implementation for Python.
 
-## What is CELL?
-
-CELL (Coordinate Encoding for Layered Locations) is a standardized format for representing coordinates on multi-dimensional game boards using a cyclical ASCII character system. CELL supports unlimited dimensional coordinate systems through the systematic repetition of three distinct character sets.
+## Overview
 
 This library implements the [CELL Specification v1.0.0](https://sashite.dev/specs/cell/1.0.0/).
+
+### Implementation Constraints
+
+| Constraint | Value | Rationale |
+|------------|-------|-----------|
+| Max dimensions | 3 | Sufficient for 1D, 2D, 3D boards |
+| Max index value | 255 | Covers 256×256×256 boards |
+| Max string length | 7 | `"iv256IV"` (max for all dimensions at 255) |
+
+These constraints enable bounded memory usage, safe parsing, and protection against malicious input in networked applications.
 
 ## Installation
 
@@ -23,201 +32,219 @@ Or with uv:
 uv add sashite-cell
 ```
 
-## CELL Format
-
-CELL uses a cyclical three-character-set system that repeats indefinitely based on dimensional position:
-
-| Dimension | Condition | Character Set | Examples |
-|-----------|-----------|---------------|----------|
-| 1st, 4th, 7th… | n % 3 = 1 | Latin lowercase (`a`–`z`) | `a`, `e`, `aa`, `file` |
-| 2nd, 5th, 8th… | n % 3 = 2 | Positive integers | `1`, `8`, `10`, `256` |
-| 3rd, 6th, 9th… | n % 3 = 0 | Latin uppercase (`A`–`Z`) | `A`, `C`, `AA`, `LAYER` |
-
 ## Usage
 
+### Parsing (String → Coordinate)
+
+Convert a CELL string into a `Coordinate` object.
+
 ```python
-from cell import Cell
+from sashite_cell import Coordinate
 
-# Validation
-Cell.valid("a1")       # True (2D coordinate)
-Cell.valid("a1A")      # True (3D coordinate)
-Cell.valid("e4")       # True (2D coordinate)
-Cell.valid("h8Hh8")    # True (5D coordinate)
-Cell.valid("*")        # False (not a CELL coordinate)
-Cell.valid("a0")       # False (invalid numeral)
-Cell.valid("")         # False (empty string)
+# Standard parsing (raises on error)
+coord = Coordinate.parse("e4")
+coord.indices     # => (4, 3)
+coord.dimensions  # => 2
 
-# Dimensional analysis
-Cell.dimensions("a1")     # 2
-Cell.dimensions("a1A")    # 3
-Cell.dimensions("h8Hh8")  # 5
-Cell.dimensions("foobar") # 1
+# 3D coordinate
+coord = Coordinate.parse("a1A")
+coord.indices  # => (0, 0, 0)
 
-# Parse coordinate into dimensional components
-Cell.parse("a1A")      # ["a", "1", "A"]
-Cell.parse("h8Hh8")    # ["h", "8", "H", "h", "8"]
-Cell.parse("foobar")   # ["foobar"]
-Cell.parse("1nvalid")  # raises ValueError
-
-# Convert coordinates to 0-indexed integer tuples
-Cell.to_indices("a1")    # (0, 0)
-Cell.to_indices("e4")    # (4, 3)
-Cell.to_indices("a1A")   # (0, 0, 0)
-Cell.to_indices("b2B")   # (1, 1, 1)
-
-# Convert 0-indexed integer tuples back to CELL coordinates
-Cell.from_indices((0, 0))      # "a1"
-Cell.from_indices((4, 3))      # "e4"
-Cell.from_indices((0, 0, 0))   # "a1A"
-Cell.from_indices((1, 1, 1))   # "b2B"
-
-# Round-trip conversion
-Cell.from_indices(Cell.to_indices("e4"))  # "e4"
+# Invalid input raises ValueError
+Coordinate.parse("a0")  # => raises ValueError
 ```
 
-## Format Specification
+### Formatting (Coordinate → String)
 
-### Dimensional Patterns
+Convert a `Coordinate` back to a CELL string.
 
-| Dimensions | Pattern | Examples |
-|------------|---------|----------|
-| 1D | `<lower>` | `a`, `e`, `file` |
-| 2D | `<lower><integer>` | `a1`, `e4`, `aa10` |
-| 3D | `<lower><integer><upper>` | `a1A`, `e4B` |
-| 4D | `<lower><integer><upper><lower>` | `a1Ab`, `e4Bc` |
-| 5D | `<lower><integer><upper><lower><integer>` | `a1Ab2` |
+```python
+# From Coordinate object
+coord = Coordinate(4, 3)
+str(coord)  # => "e4"
 
-### Regular Expression
-
-```regex
-^[a-z]+(?:[1-9][0-9]*[A-Z]+[a-z]+)*(?:[1-9][0-9]*[A-Z]*)?$
+# Direct formatting (convenience)
+Coordinate.format(2, 2, 2)  # => "c3C"
 ```
-
-### Valid Examples
-
-| Coordinate | Dimensions | Description |
-|------------|------------|-------------|
-| `a` | 1D | Single file |
-| `a1` | 2D | Standard chess-style |
-| `e4` | 2D | Chess center |
-| `a1A` | 3D | 3D tic-tac-toe |
-| `h8Hh8` | 5D | Multi-dimensional |
-| `aa1AA` | 3D | Extended alphabet |
-
-### Invalid Examples
-
-| String | Reason |
-|--------|--------|
-| `""` | Empty string |
-| `1` | Starts with digit |
-| `A` | Starts with uppercase |
-| `a0` | Zero is not a valid positive integer |
-| `a01` | Leading zero in numeric dimension |
-| `aA` | Missing numeric dimension |
-| `a1a` | Missing uppercase dimension |
-| `a1A1` | Numeric after uppercase without lowercase |
-
-## API Reference
 
 ### Validation
 
 ```python
-Cell.valid(s: str) -> bool
-Cell.regex() -> re.Pattern[str]
+from sashite_cell import Coordinate
+
+# Boolean check
+Coordinate.is_valid("e4")  # => True
+Coordinate.is_valid("a0")  # => False
+
+# Detailed error
+Coordinate.validate("a0")  # => raises ValueError("leading zero")
+```
+
+### Accessing Coordinate Data
+
+```python
+coord = Coordinate.parse("e4")
+
+# Get dimensions count
+coord.dimensions  # => 2
+
+# Get indices as tuple
+coord.indices  # => (4, 3)
+
+# Access individual index
+coord.indices[0]  # => 4
+coord.indices[1]  # => 3
+
+# Round-trip conversion
+str(Coordinate.parse("e4"))  # => "e4"
+```
+
+## API Reference
+
+### Types
+
+```python
+class Coordinate:
+    """
+    Represents a parsed CELL coordinate with up to 3 dimensions.
+
+    Attributes:
+        indices: Tuple of 0-indexed integers (0-255).
+        dimensions: Number of dimensions (1, 2, or 3).
+    """
+
+    def __init__(self, *indices: int) -> None:
+        """
+        Creates a Coordinate from 1 to 3 indices.
+
+        Args:
+            *indices: 0-indexed coordinate values (0-255).
+
+        Raises:
+            ValueError: If no indices provided, more than 3, or out of range.
+        """
+
+    @property
+    def dimensions(self) -> int:
+        """Returns the number of dimensions (1, 2, or 3)."""
+
+    @property
+    def indices(self) -> tuple[int, ...]:
+        """Returns the coordinate indices as a tuple."""
+
+    def __str__(self) -> str:
+        """Returns the CELL string representation."""
+
+    def __repr__(self) -> str:
+        """Returns a debug representation."""
+
+    def __eq__(self, other: object) -> bool:
+        """Compares two coordinates for equality."""
+
+    def __hash__(self) -> int:
+        """Returns hash for use in sets and dicts."""
+```
+
+### Constants
+
+```python
+Coordinate.MAX_DIMENSIONS: int = 3
+Coordinate.MAX_INDEX_VALUE: int = 255
+Coordinate.MAX_STRING_LENGTH: int = 7
 ```
 
 ### Parsing
 
 ```python
-Cell.parse(s: str) -> list[str]  # raises ValueError on invalid input
+@classmethod
+def parse(cls, string: str) -> "Coordinate":
+    """
+    Parses a CELL string into a Coordinate.
+
+    Args:
+        string: CELL coordinate string.
+
+    Returns:
+        Coordinate object.
+
+    Raises:
+        ValueError: If the string is not valid.
+    """
 ```
 
-### Dimensional Analysis
+### Formatting
 
 ```python
-Cell.dimensions(s: str) -> int  # returns 0 for invalid coordinates
+@classmethod
+def format(cls, *indices: int) -> str:
+    """
+    Formats indices into a CELL string.
+
+    Convenience method equivalent to str(Coordinate(*indices)).
+
+    Args:
+        *indices: 0-indexed coordinate values.
+
+    Returns:
+        CELL string representation.
+
+    Raises:
+        ValueError: If indices are invalid.
+    """
 ```
 
-### Coordinate Conversion
+### Validation
 
 ```python
-Cell.to_indices(s: str) -> tuple[int, ...]  # raises ValueError on invalid input
-Cell.from_indices(indices: tuple[int, ...]) -> str  # raises ValueError on invalid input
+@classmethod
+def validate(cls, string: str) -> None:
+    """
+    Validates a CELL string.
+
+    Args:
+        string: CELL coordinate string.
+
+    Raises:
+        ValueError: With descriptive message if invalid.
+    """
+
+@classmethod
+def is_valid(cls, string: str) -> bool:
+    """
+    Reports whether string is a valid CELL coordinate.
+
+    Args:
+        string: CELL coordinate string.
+
+    Returns:
+        True if valid, False otherwise.
+    """
 ```
 
-## Game Examples
+### Errors
 
-### Chess (8×8)
+All parsing and validation errors raise `ValueError` with descriptive messages:
 
-```python
-from cell import Cell
+| Message | Cause |
+|---------|-------|
+| `"empty input"` | String length is 0 |
+| `"input exceeds 7 characters"` | String too long |
+| `"must start with lowercase letter"` | Invalid first character |
+| `"unexpected character"` | Character violates the cyclic sequence |
+| `"leading zero"` | Numeric part starts with '0' |
+| `"exceeds 3 dimensions"` | More than 3 dimensions |
+| `"index exceeds 255"` | Decoded value out of range |
 
-# Standard chess coordinates
-chess_squares = [f"{chr(file)}{rank}" for file in range(ord('a'), ord('h') + 1) for rank in range(1, 9)]
+## Design Principles
 
-# All are valid
-all(Cell.valid(square) for square in chess_squares)  # True
-
-# Convert position
-Cell.to_indices("e4")  # (4, 3)
-Cell.to_indices("h8")  # (7, 7)
-```
-
-### Shōgi (9×9)
-
-```python
-from cell import Cell
-
-# Shōgi board positions
-Cell.valid("e5")  # True (center)
-Cell.valid("i9")  # True (corner)
-
-Cell.to_indices("e5")  # (4, 4)
-```
-
-### 3D Tic-Tac-Toe (3×3×3)
-
-```python
-from cell import Cell
-
-# Three-dimensional coordinates
-Cell.valid("a1A")  # True
-Cell.valid("b2B")  # True
-Cell.valid("c3C")  # True
-
-# Winning diagonal
-diagonal = ["a1A", "b2B", "c3C"]
-[Cell.to_indices(coord) for coord in diagonal]
-# [(0, 0, 0), (1, 1, 1), (2, 2, 2)]
-```
-
-## Extended Alphabet
-
-CELL supports extended alphabet notation for large boards:
-
-```python
-from cell import Cell
-
-# Single letters: a-z (positions 0-25)
-Cell.to_indices("z1")   # (25, 0)
-
-# Double letters: aa-zz (positions 26-701)
-Cell.to_indices("aa1")  # (26, 0)
-Cell.to_indices("ab1")  # (27, 0)
-Cell.to_indices("zz1")  # (701, 0)
-
-# And so on...
-Cell.from_indices((702, 0))  # "aaa1"
-```
-
-## Properties
-
-- **Multi-dimensional**: Supports unlimited dimensional coordinate systems
-- **Cyclical**: Uses systematic three-character-set repetition
-- **ASCII-based**: Pure ASCII characters for universal compatibility
-- **Unambiguous**: Each coordinate maps to exactly one location
-- **Scalable**: Extends naturally from 1D to unlimited dimensions
-- **Rule-agnostic**: Independent of specific game mechanics
+- **Bounded values**: Index validation (0-255) prevents overflow and DoS attacks
+- **Input length limits**: Maximum 7 characters protects against malicious input
+- **Object-oriented**: `Coordinate` class enables methods and encapsulation
+- **Python idioms**: `is_valid()` predicate, `__str__` conversion, `ValueError` for invalid input
+- **Immutable coordinates**: Tuple indices prevent mutation
+- **Hashable**: Coordinates can be used in sets and as dict keys
+- **Type hints**: Full type annotations for IDE support and static analysis
+- **No dependencies**: Pure Python standard library only
 
 ## Related Specifications
 
