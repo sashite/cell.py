@@ -7,8 +7,8 @@ and formatting to specialized modules.
 
 from __future__ import annotations
 
-from typing import Final
-
+from sashite_cell.constants import MAX_DIMENSIONS, MAX_INDEX_VALUE
+from sashite_cell.errors import Messages
 from sashite_cell.formatter import format_indices
 from sashite_cell.parser import parse_to_indices
 
@@ -28,10 +28,6 @@ class Coordinate:
         'e4'
     """
 
-    MAX_DIMENSIONS: Final[int] = 3
-    MAX_INDEX_VALUE: Final[int] = 255
-    MAX_STRING_LENGTH: Final[int] = 7
-
     __slots__ = ("_indices",)
 
     def __init__(self, *indices: int) -> None:
@@ -45,16 +41,16 @@ class Coordinate:
             ValueError: If no indices provided, more than 3, or out of range.
         """
         if not indices:
-            raise ValueError("at least one index required")
+            raise ValueError(Messages.NO_INDICES)
 
-        if len(indices) > self.MAX_DIMENSIONS:
-            raise ValueError(f"exceeds {self.MAX_DIMENSIONS} dimensions")
+        if len(indices) > MAX_DIMENSIONS:
+            raise ValueError(Messages.TOO_MANY_DIMENSIONS)
 
-        for i, index in enumerate(indices):
+        for index in indices:
             if not isinstance(index, int) or isinstance(index, bool):
-                raise ValueError(f"index {i} must be an integer")
-            if index < 0 or index > self.MAX_INDEX_VALUE:
-                raise ValueError(f"index {i} exceeds {self.MAX_INDEX_VALUE}")
+                raise ValueError(Messages.INVALID_INDEX_TYPE)
+            if index < 0 or index > MAX_INDEX_VALUE:
+                raise ValueError(Messages.INDEX_OUT_OF_RANGE)
 
         self._indices: tuple[int, ...] = tuple(indices)
 

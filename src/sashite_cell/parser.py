@@ -2,13 +2,18 @@
 Parser for CELL coordinates.
 
 This module converts CELL string representations to index tuples.
+
+Security considerations:
+- Character-by-character parsing (no regex, no ReDoS risk)
+- Fail-fast on invalid input
+- Bounded iteration (max 7 characters)
+- Explicit ASCII validation
 """
 
 from __future__ import annotations
 
-MAX_DIMENSIONS: int = 3
-MAX_INDEX_VALUE: int = 255
-MAX_STRING_LENGTH: int = 7
+from sashite_cell.constants import MAX_DIMENSIONS, MAX_INDEX_VALUE, MAX_STRING_LENGTH
+from sashite_cell.errors import Messages
 
 
 def parse_to_indices(string: str) -> tuple[int, ...]:
@@ -30,161 +35,215 @@ def parse_to_indices(string: str) -> tuple[int, ...]:
         >>> parse_to_indices("a1A")
         (0, 0, 0)
     """
-    if not isinstance(string, str):
-        raise ValueError("input must be a string")
-
     if not string:
-        raise ValueError("empty input")
+        raise ValueError(Messages.EMPTY_INPUT)
 
     if len(string) > MAX_STRING_LENGTH:
-        raise ValueError(f"input exceeds {MAX_STRING_LENGTH} characters")
+        raise ValueError(Messages.INPUT_TOO_LONG)
+
+    first_char = string[0]
+    if not _is_lowercase(first_char):
+        raise ValueError(Messages.INVALID_START)
 
     indices: list[int] = []
     pos = 0
+    dimension_type = 0  # 0: lowercase, 1: integer, 2: uppercase
 
     while pos < len(string):
-        dimension_type = len(indices) % 3
+        if len(indices) >= MAX_DIMENSIONS:
+            raise ValueError(Messages.TOO_MANY_DIMENSIONS)
 
         if dimension_type == 0:
-            # Dimensions 1, 4, 7... -> lowercase letters
-            index, consumed = _parse_lowercase(string, pos)
+            value, consumed = _parse_lowercase(string, pos)
+            indices.append(value)
+            pos += consumed
+            dimension_type = 1
         elif dimension_type == 1:
-            # Dimensions 2, 5, 8... -> positive integers
-            index, consumed = _parse_integer(string, pos)
+            value, consumed = _parse_integer(string, pos)
+            indices.append(value)
+            pos += consumed
+            dimension_type = 2
         else:
-            # Dimensions 3, 6, 9... -> uppercase letters
-            index, consumed = _parse_uppercase(string, pos)
-
-        indices.append(index)
-        pos += consumed
-
-        if len(indices) > MAX_DIMENSIONS:
-            raise ValueError(f"exceeds {MAX_DIMENSIONS} dimensions")
+            value, consumed = _parse_uppercase(string, pos)
+            indices.append(value)
+            pos += consumed
+            dimension_type = 0
 
     return tuple(indices)
 
 
+def _is_lowercase(char: str) -> bool:
+    """Check if character is ASCII lowercase letter (a-z)."""
+    return len(char) == 1 and "a" <= char <= "z"
+
+
+def _is_uppercase(char: str) -> bool:
+    """Check if character is ASCII uppercase letter (A-Z)."""
+    return len(char) == 1 and "A" <= char <= "Z"
+
+
+def _is_digit(char: str) -> bool:
+    """Check if character is ASCII digit (0-9)."""
+    return len(char) == 1 and "0" <= char <= "9"
+
+
 def _parse_lowercase(string: str, pos: int) -> tuple[int, int]:
     """
-    Parse lowercase letter sequence starting at pos.
+    Parse lowercase letters starting at position.
 
     Args:
         string: Input string.
         pos: Starting position.
 
     Returns:
-        Tuple of (index, characters_consumed).
+        Tuple of (decoded_value, characters_consumed).
 
     Raises:
-        ValueError: If no lowercase letter found or index out of range.
+        ValueError: If parsing fails.
     """
-    if pos >= len(string):
-        raise ValueError("must start with lowercase letter")
-
-    char = string[pos]
-    if not (char.isascii() and char.islower()):
-        raise ValueError("must start with lowercase letter")
+    if pos >= len(string) or not _is_lowercase(string[pos]):
+        raise ValueError(Messages.UNEXPECTED_CHARACTER)
 
     end = pos
-    while end < len(string):
-        char = string[end]
-        if not (char.isascii() and char.islower()):
-            break
+    while end < len(string) and _is_lowercase(string[end]):
         end += 1
 
-    segment = string[pos:end]
-    index = _letters_to_index(segment)
+    value = _decode_lowercase(string[pos:end])
+    if value > MAX_INDEX_VALUE:
+        raise ValueError(Messages.INDEX_OUT_OF_RANGE)
 
-    if index > MAX_INDEX_VALUE:
-        raise ValueError(f"index exceeds {MAX_INDEX_VALUE}")
-
-    return index, end - pos
+    return value, end - pos
 
 
 def _parse_integer(string: str, pos: int) -> tuple[int, int]:
     """
-    Parse integer sequence starting at pos.
+    Parse positive integer starting at position.
 
     Args:
         string: Input string.
         pos: Starting position.
 
     Returns:
-        Tuple of (index, characters_consumed).
+        Tuple of (decoded_value, characters_consumed).
 
     Raises:
-        ValueError: If invalid integer format or index out of range.
+        ValueError: If parsing fails.
     """
-    if pos >= len(string) or not (string[pos].isascii() and string[pos].isdigit()):
-        raise ValueError("unexpected character")
+    if pos >= len(string) or not _is_digit(string[pos]):
+        raise ValueError(Messages.UNEXPECTED_CHARACTER)
 
     if string[pos] == "0":
-        raise ValueError("leading zero")
+        raise ValueError(Messages.LEADING_ZERO)
 
     end = pos
-    while end < len(string) and string[end].isascii() and string[end].isdigit():
+    while end < len(string) and _is_digit(string[end]):
         end += 1
 
-    segment = string[pos:end]
-    value = int(segment)
-    index = value - 1  # Convert to 0-indexed
+    value = _decode_integer(string[pos:end])
+    if value < 0 or value > MAX_INDEX_VALUE:
+        raise ValueError(Messages.INDEX_OUT_OF_RANGE)
 
-    if index < 0 or index > MAX_INDEX_VALUE:
-        raise ValueError(f"index exceeds {MAX_INDEX_VALUE}")
-
-    return index, end - pos
+    return value, end - pos
 
 
 def _parse_uppercase(string: str, pos: int) -> tuple[int, int]:
     """
-    Parse uppercase letter sequence starting at pos.
+    Parse uppercase letters starting at position.
 
     Args:
         string: Input string.
         pos: Starting position.
 
     Returns:
-        Tuple of (index, characters_consumed).
+        Tuple of (decoded_value, characters_consumed).
 
     Raises:
-        ValueError: If no uppercase letter found or index out of range.
+        ValueError: If parsing fails.
     """
-    if pos >= len(string):
-        raise ValueError("unexpected character")
-
-    char = string[pos]
-    if not (char.isascii() and char.isupper()):
-        raise ValueError("unexpected character")
+    if pos >= len(string) or not _is_uppercase(string[pos]):
+        raise ValueError(Messages.UNEXPECTED_CHARACTER)
 
     end = pos
-    while end < len(string):
-        char = string[end]
-        if not (char.isascii() and char.isupper()):
-            break
+    while end < len(string) and _is_uppercase(string[end]):
         end += 1
 
-    segment = string[pos:end]
-    index = _letters_to_index(segment.lower())
+    value = _decode_uppercase(string[pos:end])
+    if value > MAX_INDEX_VALUE:
+        raise ValueError(Messages.INDEX_OUT_OF_RANGE)
 
-    if index > MAX_INDEX_VALUE:
-        raise ValueError(f"index exceeds {MAX_INDEX_VALUE}")
-
-    return index, end - pos
+    return value, end - pos
 
 
-def _letters_to_index(letters: str) -> int:
+def _decode_lowercase(segment: str) -> int:
     """
-    Convert letter sequence to 0-indexed integer.
-
-    'a' -> 0, 'z' -> 25, 'aa' -> 26, 'ab' -> 27, etc.
+    Decode lowercase letter segment to index.
 
     Args:
-        letters: Lowercase letter sequence.
+        segment: Lowercase letter sequence.
 
     Returns:
-        0-indexed integer value.
+        Decoded index (0-255).
+
+    Example:
+        >>> _decode_lowercase("a")
+        0
+        >>> _decode_lowercase("z")
+        25
+        >>> _decode_lowercase("aa")
+        26
+        >>> _decode_lowercase("iv")
+        255
     """
-    index = 0
-    for char in letters:
-        index = index * 26 + (ord(char) - ord("a") + 1)
-    return index - 1
+    if len(segment) == 1:
+        return ord(segment[0]) - ord("a")
+    else:
+        first = ord(segment[0]) - ord("a")
+        second = ord(segment[1]) - ord("a")
+        return 26 + (first * 26) + second
+
+
+def _decode_uppercase(segment: str) -> int:
+    """
+    Decode uppercase letter segment to index.
+
+    Args:
+        segment: Uppercase letter sequence.
+
+    Returns:
+        Decoded index (0-255).
+
+    Example:
+        >>> _decode_uppercase("A")
+        0
+        >>> _decode_uppercase("Z")
+        25
+        >>> _decode_uppercase("AA")
+        26
+        >>> _decode_uppercase("IV")
+        255
+    """
+    if len(segment) == 1:
+        return ord(segment[0]) - ord("A")
+    else:
+        first = ord(segment[0]) - ord("A")
+        second = ord(segment[1]) - ord("A")
+        return 26 + (first * 26) + second
+
+
+def _decode_integer(segment: str) -> int:
+    """
+    Decode digit segment to index (1-based to 0-based).
+
+    Args:
+        segment: Digit sequence.
+
+    Returns:
+        Decoded index (0-255).
+
+    Example:
+        >>> _decode_integer("1")
+        0
+        >>> _decode_integer("256")
+        255
+    """
+    return int(segment) - 1

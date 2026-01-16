@@ -11,9 +11,12 @@ Example usage:
     (4, 3)
     >>> str(coord)
     'e4'
+
+Constants are available in the constants module:
+    >>> from sashite_cell.constants import MAX_DIMENSIONS, MAX_INDEX_VALUE
 """
 
 from sashite_cell.coordinate import Coordinate
 
 __all__ = ["Coordinate"]
-__version__ = "2.0.0"
+__version__ = "3.0.0"

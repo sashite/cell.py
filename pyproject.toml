@@ -1,6 +1,6 @@
 [project]
 name = "sashite-cell"
-version = "2.0.0"
+version = "3.0.0"
 description = "CELL (Coordinate Encoding for Layered Locations) implementation for Python"
 readme = "README.md"
 license = "Apache-2.0"

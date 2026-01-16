@@ -148,9 +148,11 @@ class Coordinate:
 ### Constants
 
 ```python
-Coordinate.MAX_DIMENSIONS: int = 3
-Coordinate.MAX_INDEX_VALUE: int = 255
-Coordinate.MAX_STRING_LENGTH: int = 7
+from sashite_cell.constants import MAX_DIMENSIONS, MAX_INDEX_VALUE, MAX_STRING_LENGTH
+
+MAX_DIMENSIONS    # => 3
+MAX_INDEX_VALUE   # => 255
+MAX_STRING_LENGTH # => 7
 ```
 
 ### Parsing

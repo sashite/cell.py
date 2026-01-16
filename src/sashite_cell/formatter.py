@@ -29,38 +29,95 @@ def format_indices(indices: tuple[int, ...]) -> str:
         dimension_type = i % 3
 
         if dimension_type == 0:
-            # Dimensions 1, 4, 7... -> lowercase letters
-            parts.append(_index_to_letters(index, lowercase=True))
+            parts.append(_encode_to_lower(index))
         elif dimension_type == 1:
-            # Dimensions 2, 5, 8... -> positive integers (1-indexed)
-            parts.append(str(index + 1))
+            parts.append(_encode_to_number(index))
         else:
-            # Dimensions 3, 6, 9... -> uppercase letters
-            parts.append(_index_to_letters(index, lowercase=False))
+            parts.append(_encode_to_upper(index))
 
     return "".join(parts)
 
 
-def _index_to_letters(index: int, *, lowercase: bool) -> str:
+def _encode_to_lower(index: int) -> str:
     """
-    Convert 0-indexed integer to letter sequence.
-
-    0 -> 'a', 25 -> 'z', 26 -> 'aa', 27 -> 'ab', etc.
+    Encode index (0-255) as lowercase letters (a-z, aa-iv).
 
     Args:
-        index: 0-indexed integer value.
-        lowercase: If True, return lowercase letters; otherwise uppercase.
+        index: 0-indexed value (0-255).
 
     Returns:
-        Letter sequence representing the index.
+        Lowercase letter sequence.
+
+    Example:
+        >>> _encode_to_lower(0)
+        'a'
+        >>> _encode_to_lower(25)
+        'z'
+        >>> _encode_to_lower(26)
+        'aa'
+        >>> _encode_to_lower(255)
+        'iv'
     """
-    result: list[str] = []
-    value = index + 1  # Convert to 1-indexed for calculation
+    return _encode_to_letters(index, base=ord("a"))
 
-    while value > 0:
-        value, remainder = divmod(value - 1, 26)
-        char = chr(ord("a") + remainder)
-        result.append(char)
 
-    letters = "".join(reversed(result))
-    return letters if lowercase else letters.upper()
+def _encode_to_upper(index: int) -> str:
+    """
+    Encode index (0-255) as uppercase letters (A-Z, AA-IV).
+
+    Args:
+        index: 0-indexed value (0-255).
+
+    Returns:
+        Uppercase letter sequence.
+
+    Example:
+        >>> _encode_to_upper(0)
+        'A'
+        >>> _encode_to_upper(25)
+        'Z'
+        >>> _encode_to_upper(26)
+        'AA'
+        >>> _encode_to_upper(255)
+        'IV'
+    """
+    return _encode_to_letters(index, base=ord("A"))
+
+
+def _encode_to_letters(index: int, base: int) -> str:
+    """
+    Encode index to letter sequence.
+
+    Args:
+        index: 0-indexed value (0-255).
+        base: Base character code (ord('a') or ord('A')).
+
+    Returns:
+        Letter sequence.
+    """
+    if index < 26:
+        return chr(base + index)
+    else:
+        adjusted = index - 26
+        first = adjusted // 26
+        second = adjusted % 26
+        return chr(base + first) + chr(base + second)
+
+
+def _encode_to_number(index: int) -> str:
+    """
+    Encode index (0-255) as 1-based positive integer string.
+
+    Args:
+        index: 0-indexed value (0-255).
+
+    Returns:
+        Number string (1-indexed).
+
+    Example:
+        >>> _encode_to_number(0)
+        '1'
+        >>> _encode_to_number(255)
+        '256'
+    """
+    return str(index + 1)
